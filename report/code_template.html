@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>代码详情统计</title>
+<!-- __ECHARTS__ -->
+<script>window.__DATA__ = __DATA_JSON__;</script>
+<style>
+  :root{
+    --bg:#f6f8fa; --card:#fff; --line:#e1e4e8; --txt:#1f2328; --sub:#6a737d;
+    --accent:#0969da; --green:#1a7f37; --purple:#8250df;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--txt);font-size:14px}
+  .topbar{background:#161b22;color:#fff;padding:14px 24px}
+  .topbar .repo{font-size:18px;font-weight:600}
+  .topbar .meta{color:#8b949e;font-size:12px;margin-top:4px}
+  .printbtn{background:#21262d;color:#c9d1d9;border:1px solid #30363d;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:13px;white-space:nowrap}
+  .printbtn:hover{background:#30363d;color:#fff}
+  .wrap{max-width:1180px;margin:0 auto;padding:16px 24px 80px}
+  .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:16px}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .kpi .label{color:var(--sub);font-size:12px}
+  .kpi .val{font-size:23px;font-weight:700;margin-top:4px;font-variant-numeric:tabular-nums}
+  section{margin-top:22px}
+  h2{font-size:16px;margin:0 0 12px;padding-left:10px;border-left:4px solid var(--accent)}
+  .grid{display:grid;gap:14px}
+  .grid.c2{grid-template-columns:1fr 1fr}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}
+  .ptitle{font-weight:600;margin-bottom:8px;font-size:14px}
+  .psub{color:var(--sub);font-size:12px;font-weight:400;margin-left:6px}
+  .chart{width:100%;height:360px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:7px 9px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+  th{color:var(--sub);font-weight:600;font-size:12px}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+  tr:hover td{background:#f6f8fa}
+  .muted{color:var(--sub)}
+  input[type=text]{border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:13px;background:#fff;color:var(--txt);width:260px}
+  .leaf{display:inline-block;background:var(--accent);opacity:.75;border-radius:2px;height:10px;vertical-align:baseline}
+  @media print{
+    .printbtn{display:none !important}
+    body{background:#fff}
+    .panel{box-shadow:none !important;page-break-inside:avoid}
+  }
+  @media(max-width:900px){.kpis{grid-template-columns:repeat(3,1fr)} .grid.c2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px">
+    <div>
+      <div class="repo">📐 代码详情统计 · <span id="repoName">…</span></div>
+      <div class="meta"><span id="repoPath"></span> · 生成于 <span id="genAt"></span> · <span id="fileCount">0</span> 个文件</div>
+    </div>
+    <button class="printbtn" onclick="window.print()">🖨 打印 / 导出 PDF</button>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="kpis" id="kpis"></div>
+  <div id="emptyMsg"></div>
+
+  <section>
+    <h2>文件类型分布</h2>
+    <div class="grid c2">
+      <div class="panel"><div class="ptitle">各类型代码行数（Top 15）<span class="psub">按总行数</span></div><div class="chart" id="cExt"></div></div>
+      <div class="panel"><div class="ptitle">各类型文件数<span class="psub">按文件数</span></div><div class="chart" id="cExtFiles"></div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>目录分布</h2>
+    <div class="panel"><div class="ptitle">各目录代码行数（Top 15）</div><div class="chart" id="cDir"></div></div>
+  </section>
+
+  <section>
+    <h2>最大的文件 Top 20</h2>
+    <div class="panel">
+      <table id="tLargest"><thead>
+        <tr><th>文件</th><th>类型</th><th class="num">总行数</th><th class="num">代码行</th><th class="num">空行</th></tr>
+      </thead><tbody></tbody></table>
+    </div>
+  </section>
+
+  <section>
+    <h2>文件明细</h2>
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div class="ptitle" style="margin:0">全部文件 <span class="psub" id="fileNote"></span></div>
+        <input type="text" id="fSearch" placeholder="搜索文件路径…">
+      </div>
+      <table id="tFiles"><thead>
+        <tr><th>文件</th><th>类型</th><th class="num">总行数</th><th class="num">代码行</th><th class="num">空行</th></tr>
+      </thead><tbody></tbody></table>
+    </div>
+  </section>
+</div>
+
+<script>
+var DATA = window.__DATA__ || {};
+var REPO = DATA.repo || {};
+var S = DATA.summary || {};
+
+function fmt(n){ return (n==null?'':n).toLocaleString('zh-CN'); }
+
+function renderKpis(){
+  document.getElementById('kpis').innerHTML = [
+    {label:'文件总数', val:fmt(S.files)},
+    {label:'总行数', val:fmt(S.lines)},
+    {label:'代码行(非空)', val:fmt(S.code)},
+    {label:'空行', val:fmt(S.blank)},
+    {label:'文件类型数', val:S.exts},
+    {label:'平均行/文件', val:fmt(S.avg)}
+  ].map(function(k){ return '<div class="kpi"><div class="label">'+k.label+'</div><div class="val">'+k.val+'</div></div>'; }).join('');
+}
+
+function topBy(list, n){ var a = list.slice().sort(function(x,y){return y.lines-x.lines;}); return a.slice(0, n); }
+
+function barOpt(rows, color){
+  return {
+    tooltip:{trigger:'axis', formatter:function(p){
+      var r = rows[p[0].dataIndex];
+      return r.ext + '<br/>文件 ' + r.files + ' 个 · 总行 ' + fmt(r.lines) + ' · 代码 ' + fmt(r.code) + ' · 空行 ' + fmt(r.blank);
+    }},
+    grid:{left:80,right:30,top:10,bottom:30},
+    xAxis:{type:'value'}, yAxis:{type:'category',inverse:true,data:rows.map(function(r){return r.ext;})},
+    series:[{type:'bar',data:rows.map(function(r){return r.lines;}),itemStyle:{color:color||'#0969da'},barMaxWidth:18,
+      label:{show:true,position:'right',fontSize:10,formatter:function(p){return fmt(p.value);}}}]
+  };
+}
+function dirOpt(rows){
+  return {
+    tooltip:{trigger:'axis', formatter:function(p){
+      var r = rows[p[0].dataIndex];
+      return r.dir + '<br/>文件 ' + r.files + ' 个 · 总行 ' + fmt(r.lines) + ' 行';
+    }},
+    grid:{left:150,right:30,top:10,bottom:30},
+    xAxis:{type:'value'}, yAxis:{type:'category',inverse:true,data:rows.map(function(r){return r.dir;})},
+    series:[{type:'bar',data:rows.map(function(r){return r.lines;}),itemStyle:{color:'#8250df'},barMaxWidth:16,
+      label:{show:true,position:'right',fontSize:10,formatter:function(p){return fmt(p.value);}}}]
+  };
+}
+
+function renderCharts(){
+  var extLines = topBy(DATA.byExt||[], 15).slice().reverse();
+  chart('cExt').setOption(barOpt(extLines, '#0969da'));
+
+  var extFiles = (DATA.byExt||[]).slice().sort(function(a,b){return b.files-a.files;}).slice(0,15).reverse();
+  chart('cExtFiles').setOption({
+    tooltip:{trigger:'axis', formatter:function(p){ var r=extFiles[p[0].dataIndex]; return r.ext+'<br/>文件 '+r.files+' 个 · 总行 '+fmt(r.lines); }},
+    grid:{left:80,right:30,top:10,bottom:30},
+    xAxis:{type:'value'}, yAxis:{type:'category',inverse:true,data:extFiles.map(function(r){return r.ext;})},
+    series:[{type:'bar',data:extFiles.map(function(r){return r.files;}),itemStyle:{color:'#1a7f37'},barMaxWidth:18,
+      label:{show:true,position:'right',fontSize:10}}]
+  });
+
+  var dirs = topBy((DATA.byDir||[]).map(function(d){return {dir:d.dir, files:d.files, lines:d.lines};}), 15).slice().reverse();
+  chart('cDir').setOption(dirOpt(dirs));
+}
+
+function renderLargest(){
+  var rows = (DATA.largest||[]);
+  document.getElementById('tLargest').querySelector('tbody').innerHTML = rows.length ? rows.map(function(r){
+    return '<tr><td>'+r.path+'</td><td class="muted">'+r.ext+'</td><td class="num">'+fmt(r.lines)+'</td><td class="num">'+fmt(r.code)+'</td><td class="num">'+fmt(r.blank)+'</td></tr>';
+  }).join('') : '<tr><td colspan="5" class="muted">无数据</td></tr>';
+}
+
+var fileSearch = '';
+function renderFiles(){
+  var q = fileSearch.trim().toLowerCase();
+  var rows = (DATA.files||[]).filter(function(f){ return !q || f.path.toLowerCase().indexOf(q) >= 0; });
+  rows.sort(function(a,b){ return b.lines - a.lines; });
+  var shown = q ? rows : rows.slice(0, 200);
+  var total = (DATA.files||[]).length;
+  document.getElementById('fileNote').innerHTML = '共 ' + fmt(total) + ' 个文件' +
+    (q ? '，命中 ' + fmt(rows.length) + ' 个' : '，默认显示行数最多的前 200 个（可搜索查看全部）');
+  document.getElementById('tFiles').querySelector('tbody').innerHTML = shown.length ? shown.map(function(r){
+    return '<tr><td>'+r.path+'</td><td class="muted">'+r.ext+'</td><td class="num">'+fmt(r.lines)+'</td><td class="num">'+fmt(r.code)+'</td><td class="num">'+fmt(r.blank)+'</td></tr>';
+  }).join('') : '<tr><td colspan="5" class="muted">无匹配文件</td></tr>';
+}
+
+var charts = {};
+function chart(id){ if(!charts[id]) charts[id] = echarts.init(document.getElementById(id)); return charts[id]; }
+
+document.getElementById('fSearch').oninput = function(e){ fileSearch = e.target.value; renderFiles(); };
+document.getElementById('repoName').textContent = REPO.name || 'repository';
+document.getElementById('repoPath').textContent = REPO.path || '';
+document.getElementById('genAt').textContent = (REPO.generatedAt||'').slice(0,16).replace('T',' ');
+document.getElementById('fileCount').textContent = fmt(S.files || 0);
+
+window.addEventListener('resize', function(){ Object.keys(charts).forEach(function(k){ charts[k].resize(); }); });
+
+if(!S.files){
+  document.getElementById('emptyMsg').innerHTML =
+    '<div style="background:#fff8e1;border:1px solid #ffe082;border-radius:10px;padding:14px 18px;margin-bottom:16px;color:#664d03">' +
+    '未统计到任何文件。<br/>扫描目录：' + (REPO.path || '') +
+    '<br/>该目录可能为空，或文件都位于被忽略的目录（.git / node_modules / build / .venv 等）。</div>';
+}
+renderKpis();
+renderCharts();
+renderLargest();
+renderFiles();
+</script>
+</body>
+</html>

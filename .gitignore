@@ -1,0 +1,8 @@
+# 本地工具与缓存，不入库
+__pycache__/
+*.pyc
+.claude/
+.workbuddy/
+
+# 临时脚本目录
+tmp/

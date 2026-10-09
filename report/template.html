@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Git 提交统计报告</title>
+<!-- __ECHARTS__ -->
+<script>window.__DATA__ = __DATA_JSON__;</script>
+<style>
+  :root{
+    --bg:#f6f8fa; --card:#fff; --line:#e1e4e8; --txt:#1f2328; --sub:#6a737d;
+    --accent:#0969da; --green:#1a7f37; --red:#cf222e; --purple:#8250df; --chip:#eaeef2;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--txt);font-size:14px}
+  a{color:var(--accent);text-decoration:none}
+  .topbar{background:#161b22;color:#fff;padding:14px 24px}
+  .topbar .repo{font-size:18px;font-weight:600}
+  .topbar .meta{color:#8b949e;font-size:12px;margin-top:4px}
+  .topbar .badge{display:inline-block;background:#214b6e;color:#9ecbff;border:1px solid #2d6ca8;border-radius:999px;padding:1px 10px;font-size:12px;margin-left:8px;vertical-align:1px}
+  .wrap{max-width:1280px;margin:0 auto;padding:16px 24px 80px}
+  .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:14px}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .kpi .label{color:var(--sub);font-size:12px}
+  .kpi .val{font-size:23px;font-weight:700;margin-top:4px;font-variant-numeric:tabular-nums}
+  .kpi .val.add{color:var(--green)} .kpi .val.del{color:var(--red)} .kpi .val.net{color:var(--accent)}
+  .filter{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:12px;position:sticky;top:8px;z-index:20;box-shadow:0 2px 8px rgba(0,0,0,.05)}
+  .frow{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap}
+  .fgroup{display:flex;flex-direction:column;gap:6px}
+  .fgroup .lbl{font-size:12px;color:var(--sub);font-weight:600}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{border:1px solid var(--line);background:var(--chip);border-radius:999px;padding:4px 11px;cursor:pointer;font-size:12.5px;user-select:none;transition:.12s}
+  .chip.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+  select,input[type=text],input[type=date]{border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:13px;background:#fff;color:var(--txt)}
+  .btn{border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:13px}
+  .btn:hover{background:#f3f4f6}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff}
+  .seg .sb{padding:6px 14px;border:none;background:#fff;cursor:pointer;font-size:13px;color:var(--sub)}
+  .seg .sb.on{background:var(--accent);color:#fff}
+  .summary{font-size:12px;color:var(--sub);margin-top:10px}
+  .tabs{display:flex;gap:6px;margin:12px 0;position:sticky;top:8px;z-index:20;background:var(--bg);padding:6px;border-radius:10px;flex-wrap:wrap}
+  .tabs .tb{padding:9px 18px;border:1px solid var(--line);border-radius:9px;cursor:pointer;font-size:14px;background:var(--card);user-select:none}
+  .tabs .tb.on{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600}
+  .tab-panel{display:none}
+  .tab-panel.active{display:block}
+  .grid{display:grid;gap:14px}
+  .grid.c2{grid-template-columns:1fr 1fr}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}
+  .ptitle{font-weight:600;margin-bottom:8px;font-size:14px}
+  .psub{color:var(--sub);font-size:12px;font-weight:400;margin-left:6px}
+  .chart{width:100%;height:300px}
+  .chart.full{width:100%;height:340px}
+  .chart.heat{width:100%;height:210px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:7px 9px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+  th{color:var(--sub);font-weight:600;font-size:12px;cursor:pointer;user-select:none}
+  th:hover{color:var(--accent)}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+  tr:hover td{background:#f6f8fa}
+  .empty{color:var(--sub);text-align:center;padding:30px;font-size:13px}
+  .muted{color:var(--sub)}
+  .g{color:var(--green)} .r{color:var(--red)} .b{color:var(--accent)}
+  .branch-banner{background:#f0f6ff;border:1px solid #bcd7f7;border-radius:10px;padding:14px 16px;margin-bottom:14px}
+  .branch-banner .tag{background:var(--accent);color:#fff;border-radius:999px;padding:2px 12px;font-size:13px;font-weight:600}
+  .cur{padding:1px 10px;border-radius:999px;background:#e8f6ee;color:#1a7f37;font-size:12px;font-weight:600}
+  .insights{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin-bottom:14px}
+  .insight{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 14px}
+  .insight .il{font-size:12px;color:var(--sub)}
+  .insight .iv{font-size:14px;font-weight:600;margin-top:2px}
+  .printbtn{background:#21262d;color:#c9d1d9;border:1px solid #30363d;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:13px;white-space:nowrap}
+  .printbtn:hover{background:#30363d;color:#fff}
+  .printing .tab-panel{display:block !important}
+  @media print{
+    .filter,.tabs,.printbtn{display:none !important}
+    body{background:#fff}
+    .panel{box-shadow:none !important;page-break-inside:avoid}
+  }
+  @media(max-width:900px){.kpis{grid-template-columns:repeat(3,1fr)} .grid.c2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px">
+    <div>
+      <div class="repo">📊 Git 提交统计 · <span id="repoName">…</span></div>
+      <div class="meta"><span id="repoPath"></span> · 统计分支<span class="badge" id="topBranch"></span> · 生成于 <span id="genAt"></span> · <span id="commitCount">0</span> 条提交</div>
+    </div>
+    <button class="printbtn" onclick="exportPdf()">🖨 打印 / 导出 PDF</button>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="kpis" id="kpis"></div>
+  <div class="insights" id="insights"></div>
+
+  <div class="filter">
+    <div class="frow">
+      <div class="fgroup">
+        <span class="lbl">统计口径</span>
+        <div class="seg" id="metricSeg">
+          <button class="sb on" data-m="commits">提交次数</button>
+          <button class="sb" data-m="lines">代码行数</button>
+        </div>
+      </div>
+      <div class="fgroup">
+        <span class="lbl">时间范围</span>
+        <div style="display:flex;gap:6px;align-items:center">
+          <select id="fDays">
+            <option value="0">全部</option>
+            <option value="7">近 7 天</option>
+            <option value="30">近 1 月</option>
+            <option value="90">近 3 月</option>
+            <option value="365" selected>近 1 年</option>
+            <option value="custom">自定义…</option>
+          </select>
+          <input type="date" id="fFrom">
+          <span class="muted">至</span>
+          <input type="date" id="fTo">
+        </div>
+      </div>
+      <div class="fgroup" style="flex:1;min-width:260px">
+        <span class="lbl">人员 <a href="#" id="authAll">全选</a> · <a href="#" id="authNone">清空</a></span>
+        <div class="chips" id="authChips"></div>
+      </div>
+      <div class="fgroup" style="flex:1;min-width:230px">
+        <span class="lbl">提交类型 <a href="#" id="typeAll">全选</a></span>
+        <div class="chips" id="typeChips"></div>
+      </div>
+    </div>
+    <div class="frow" style="margin-top:10px">
+      <div class="fgroup" style="flex:1">
+        <span class="lbl">关键字（提交信息）</span>
+        <input type="text" id="fKw" placeholder="例如：fix、登录、统计、refactor …" style="width:100%">
+      </div>
+      <div class="fgroup">
+        <span class="lbl">&nbsp;</span>
+        <button class="btn" id="reset">↺ 重置</button>
+      </div>
+    </div>
+    <div class="summary" id="summary"></div>
+  </div>
+
+  <div class="tabs" id="tabs">
+    <div class="tb on" data-tab="overview">总览</div>
+    <div class="tb" data-tab="when">时间</div>
+    <div class="tb" data-tab="who">人员</div>
+    <div class="tb" data-tab="branch">分支</div>
+    <div class="tb" data-tab="lines">代码行数</div>
+    <div class="tb" data-tab="commits">提交内容</div>
+  </div>
+
+  <div class="tab-panel active" data-tab="overview">
+    <div class="grid">
+      <div class="panel"><div class="ptitle" id="ti-trend"></div><div class="chart full" id="cTrend"></div></div>
+      <div class="panel"><div class="ptitle" id="ti-heat"></div><div class="chart heat" id="cHeat"></div></div>
+    </div>
+  </div>
+
+  <div class="tab-panel" data-tab="when">
+    <div class="grid">
+      <div class="panel"><div class="ptitle" id="ti-matrix"></div><div class="chart full" id="cMatrix"></div></div>
+    </div>
+  </div>
+
+  <div class="tab-panel" data-tab="who">
+    <div class="grid c2">
+      <div class="panel"><div class="ptitle">贡献占比</div><div class="chart" id="cAuthorShare"></div></div>
+      <div class="panel"><div class="ptitle" id="ti-author-trend"></div><div class="chart" id="cAuthorTrend"></div></div>
+    </div>
+    <div class="grid" style="margin-top:14px">
+      <div class="panel">
+        <div class="ptitle">人员排行 <span class="psub">点击表头排序</span></div>
+        <table id="tAuthor" data-sort="author"><thead>
+          <tr><th>作者</th><th class="num" data-k="commits">提交数</th><th class="num" data-k="lines">改动行数</th><th class="num" data-k="add">新增</th><th class="num" data-k="del">删除</th><th class="num" data-k="net">净增</th><th class="num" data-k="files">变更文件</th><th class="num" data-k="days">活跃天数</th></tr>
+        </thead><tbody></tbody></table>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-panel" data-tab="branch">
+    <div class="branch-banner">
+      <div style="font-size:15px;font-weight:600">当前统计分支：<span class="tag" id="bannerBranch"></span></div>
+      <div class="muted" style="font-size:12px;margin-top:6px">报告仅统计上述单分支的提交；下列为仓库已有分支的参考信息。如需分析其他分支，请在生成时重新选择（界面不支持切换）。</div>
+    </div>
+    <div class="panel">
+      <div class="ptitle">仓库分支清单 <span class="psub">参考信息 · 点击表头排序</span></div>
+      <table id="tBranch" data-sort="branch"><thead>
+        <tr><th>分支</th><th>状态</th><th class="num" data-k="commits">提交数</th><th data-k="last">最后提交</th><th class="num" data-k="ahead">领先 main</th><th class="num" data-k="behind">落后 main</th></tr>
+      </thead><tbody></tbody></table>
+    </div>
+  </div>
+
+  <div class="tab-panel" data-tab="lines">
+    <div class="grid">
+      <div class="panel"><div class="ptitle" id="ti-net"></div><div class="chart full" id="cNet"></div></div>
+    </div>
+    <div class="grid c2" style="margin-top:14px">
+      <div class="panel"><div class="ptitle" id="ti-ext"></div><div class="chart" id="cExt"></div></div>
+      <div class="panel"><div class="ptitle">人均代码改动量（增/删堆叠）</div><div class="chart" id="cPerAuth"></div></div>
+    </div>
+    <div class="grid" style="margin-top:14px">
+      <div class="panel">
+        <div class="ptitle">高频变更文件 Top 10 <span class="psub">点击表头排序</span></div>
+        <table id="tFiles" data-sort="files"><thead>
+          <tr><th>文件</th><th class="num" data-k="commits">提交数</th><th class="num" data-k="lines">改动行数</th><th class="num" data-k="add">+新增</th><th class="num" data-k="del">-删除</th></tr>
+        </thead><tbody></tbody></table>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-panel" data-tab="commits">
+    <div class="grid c2">
+      <div class="panel"><div class="ptitle" id="ti-type"></div><div class="chart" id="cType"></div></div>
+      <div class="panel"><div class="ptitle">提交规模分布（按单次改动行数分桶）</div><div class="chart" id="cSize"></div></div>
+    </div>
+    <div class="grid" style="margin-top:14px">
+      <div class="panel">
+        <div class="ptitle">巨型提交 Top 10（按改动行数）</div>
+        <table id="tBig" data-sort="big"><thead>
+          <tr><th>提交</th><th>作者</th><th>日期</th><th class="num" data-k="total">改动行数</th></tr>
+        </thead><tbody></tbody></table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ================= 数据载入与规范化 ================= */
+var DATA = window.__DATA__ || {};
+var REPO = DATA.repo || {};
+var ANALYZED_BRANCH = DATA.analyzedBranch || '';
+var BRANCH_REFS = DATA.branches || [];
+var TODAY = (DATA.repo && DATA.repo.generatedAt) ? DATA.repo.generatedAt.slice(0,10)
+          : new Date().toISOString().slice(0,10);
+
+function parseLocal(s){
+  var m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/.exec(s || '');
+  if(!m) return {y:1970,mo:1,d:1,h:0};
+  return {y:+m[1], mo:+m[2], d:+m[3], h:+m[4]};
+}
+var commits = (DATA.commits || []).map(function(c){
+  var p = parseLocal(c.when);
+  var dayKey = p.y + '-' + String(p.mo).padStart(2,'0') + '-' + String(p.d).padStart(2,'0');
+  var dow = new Date(Date.UTC(p.y, p.mo-1, p.d)).getUTCDay(); // 0=Sun
+  var wday = (dow + 6) % 7;                                    // 0=Mon
+  var weekKey = new Date(Date.UTC(p.y, p.mo-1, p.d - wday)).toISOString().slice(0,10);
+  var monthKey = dayKey.slice(0,7);
+  return Object.assign({}, c, { dayKey:dayKey, hour:p.h, wday:wday, weekKey:weekKey, monthKey:monthKey });
+});
+
+var CANONICAL = ['feat','fix','refactor','docs','perf','test','chore','style','other'];
+var allAuthors = [];
+var allTypes = [];
+var seenA = {}, seenT = {};
+commits.forEach(function(c){ if(!seenA[c.author]){seenA[c.author]=1; allAuthors.push(c.author);} if(!seenT[c.type]){seenT[c.type]=1; allTypes.push(c.type);} });
+
+var state = { metric:'commits', start:null, end:null, authors:{}, types:{}, kw:'' };
+allAuthors.forEach(function(a){ state.authors[a] = true; });
+allTypes.forEach(function(t){ state.types[t] = true; });
+
+var sort = { author:{k:'commits',dir:-1}, files:{k:'lines',dir:-1}, big:{k:'total',dir:-1}, branch:{k:'commits',dir:-1} };
+var sortBranch = {k:'commits',dir:-1};
+var tableCache = {};
+
+/* ================= 筛选 ================= */
+function filtered(){
+  return commits.filter(function(c){
+    if(state.start && c.dayKey < state.start) return false;
+    if(state.end && c.dayKey > state.end) return false;
+    if(!state.authors[c.author]) return false;
+    if(!state.types[c.type]) return false;
+    if(state.kw && c.subject.toLowerCase().indexOf(state.kw.toLowerCase()) < 0) return false;
+    return true;
+  });
+}
+
+function mv(c){ return state.metric==='commits' ? 1 : (c.additions + c.deletions); }
+function mlabel(){ return state.metric==='commits' ? '提交次数' : '改动行数'; }
+
+/* ================= 聚合 ================= */
+function fmt(n){ return (n==null?'':n).toLocaleString('zh-CN'); }
+function sum(arr,f){ return arr.reduce(function(s,c){ return s + f(c); }, 0); }
+
+function kpis(list){
+  var authors = {}, days = {};
+  var add = sum(list,function(c){return c.additions;}), del = sum(list,function(c){return c.deletions;});
+  list.forEach(function(c){ authors[c.author]=1; days[c.dayKey]=1; });
+  var na = Object.keys(authors).length, nd = Object.keys(days).length;
+  return [
+    {label:'总提交', val:fmt(list.length)},
+    {label:'贡献者', val:na},
+    {label:'新增行数', val:'+'+fmt(add), cls:'add'},
+    {label:'删除行数', val:'-'+fmt(del), cls:'del'},
+    {label:'净增行数', val:(add-del>=0?'+':'')+fmt(add-del), cls:'net'},
+    {label:'活跃天数', val:nd}
+  ];
+}
+
+function granularity(list){
+  if(!list.length) return 'day';
+  var min = list[0].dayKey, max = list[0].dayKey;
+  list.forEach(function(c){ if(c.dayKey<min)min=c.dayKey; if(c.dayKey>max)max=c.dayKey; });
+  var days = (Date.parse(max) - Date.parse(min)) / 86400000;
+  if(days<=31) return 'day'; if(days<=180) return 'week'; return 'month';
+}
+function timeSeries(list, mode){
+  var gran = granularity(list);
+  var keyOf = function(c){ return gran==='day'?c.dayKey : gran==='week'?c.weekKey : c.monthKey; };
+  var labelOf = function(k){ return gran==='week' ? '周起 '+k : k; };
+  var map = {};
+  list.forEach(function(c){
+    var k = keyOf(c);
+    var v = mode==='commits'?1 : mode==='lines'?(c.additions+c.deletions) : (c.additions-c.deletions);
+    map[k] = (map[k]||0) + v;
+  });
+  var ks = Object.keys(map).sort();
+  return { cats: ks.map(labelOf), data: ks.map(function(k){return map[k];}), gran:gran };
+}
+var WD_CN = ['周一','周二','周三','周四','周五','周六','周日'];
+var HOURS = [];
+for (var _h = 0; _h < 24; _h++) HOURS.push(_h % 2 === 0 ? String(_h) : '');
+function activityMatrix(list){
+  var m = [];
+  for (var d = 0; d < 7; d++) m[d] = new Array(24).fill(0);
+  list.forEach(function(c){ m[c.wday][c.hour] += mv(c); });
+  var data = [], max = 0;
+  for (var d = 0; d < 7; d++) for (var h = 0; h < 24; h++) {
+    if (m[d][h] > 0) { data.push([h, d, m[d][h]]); if (m[d][h] > max) max = m[d][h]; }
+  }
+  return { data: data, max: max };
+}
+function authorRows(list){
+  var m = {};
+  list.forEach(function(c){
+    var o = m[c.author] || (m[c.author] = {author:c.author, commits:0, add:0, del:0, files:{}, days:{}});
+    o.commits++; o.add += c.additions; o.del += c.deletions;
+    (c.files||[]).forEach(function(f){ o.files[f]=1; });
+    o.days[c.dayKey] = 1;
+  });
+  return Object.keys(m).map(function(a){
+    var o = m[a];
+    return {author:o.author, commits:o.commits, add:o.add, del:o.del, lines:o.add+o.del, net:o.add-o.del, files:Object.keys(o.files).length, days:Object.keys(o.days).length};
+  });
+}
+function typeDist(list){
+  var cnt = {};
+  list.forEach(function(c){ cnt[c.type] = (cnt[c.type]||0) + mv(c); });
+  var present = Object.keys(cnt);
+  var order = CANONICAL.filter(function(t){ return present.indexOf(t)>=0; })
+             .concat(present.filter(function(t){ return CANONICAL.indexOf(t)<0; }));
+  return order.map(function(t){ return {name:t, value:cnt[t]}; }).filter(function(d){ return d.value>0; });
+}
+function extDist(list){
+  var m = {};
+  list.forEach(function(c){
+    (c.file_ext||[]).forEach(function(e){
+      var o = m[e] || (m[e] = {ext:e, add:0, del:0});
+      o.add += c.additions; o.del += c.deletions;
+    });
+  });
+  return Object.keys(m).map(function(k){return m[k];}).sort(function(a,b){return (b.add+b.del)-(a.add+a.del);});
+}
+function fileRows(list){
+  var m = {};
+  list.forEach(function(c){
+    (c.files||[]).forEach(function(f){
+      var o = m[f] || (m[f] = {f:f, commits:0, add:0, del:0});
+      o.commits++; o.add += c.additions; o.del += c.deletions;
+    });
+  });
+  return Object.keys(m).map(function(k){var o=m[k]; return {f:o.f, commits:o.commits, add:o.add, del:o.del, lines:o.add+o.del};});
+}
+function sizeDist(list){
+  var buckets = [
+    {label:'1-9 行',min:1,max:9},{label:'10-49',min:10,max:49},{label:'50-99',min:50,max:99},
+    {label:'100-499',min:100,max:499},{label:'500+',min:500,max:Infinity}
+  ];
+  return buckets.map(function(b){
+    return {label:b.label, value:list.filter(function(c){var t=c.additions+c.deletions; return t>=b.min && t<=b.max;}).length};
+  });
+}
+function authorTrend(list){
+  var authors = allAuthors.filter(function(a){ return list.some(function(c){return c.author===a;}); });
+  var months = {};
+  list.forEach(function(c){ months[c.monthKey]=1; });
+  var monthKeys = Object.keys(months).sort();
+  return { authors:authors, months:monthKeys };
+}
+function bigRows(list){
+  return list.slice().map(function(c){ return {hash:c.hash, subject:c.subject, author:c.author, date:c.dayKey, total:c.additions+c.deletions}; })
+    .sort(function(a,b){return b.total-a.total;}).slice(0,10);
+}
+function computeInsights(list){
+  if(!list.length) return [{label:'暂无数据', val:'当前筛选条件下没有提交记录'}];
+  var out = [];
+
+  var rows = authorRows(list).slice().sort(function(a,b){ return b.commits - a.commits; });
+  var topAuthor = rows[0];
+  out.push({label:'最活跃成员', val: topAuthor.author + ' · ' + topAuthor.commits + ' 次 / ' + fmt(topAuthor.lines) + ' 行'});
+
+  var hourCnt = new Array(24).fill(0), wdCnt = new Array(7).fill(0);
+  list.forEach(function(c){ hourCnt[c.hour] += mv(c); wdCnt[c.wday] += mv(c); });
+  var peakHour = hourCnt.indexOf(Math.max.apply(null, hourCnt));
+  var peakWd = wdCnt.indexOf(Math.max.apply(null, wdCnt));
+  out.push({label:'高峰时段', val: WD_CN[peakWd] + ' ' + peakHour + ' 点前后'});
+
+  var tc = {}; list.forEach(function(c){ tc[c.type] = (tc[c.type]||0) + 1; });
+  var keys = Object.keys(tc).sort(function(a,b){ return tc[b]-tc[a]; });
+  var tt = keys[0];
+  out.push({label:'最常见提交类型', val: tt + '（占 ' + Math.round(100*tc[tt]/list.length) + '%）'});
+
+  var now = new Date(TODAY+'T00:00:00Z').getTime(), rec = 0, prev = 0;
+  list.forEach(function(c){
+    var days = (now - new Date(c.dayKey+'T00:00:00Z').getTime()) / 86400000;
+    if(days <= 30) rec++; else if(days <= 60) prev++;
+  });
+  out.push({label:'近 30 天活跃度', val: prev > 0
+    ? (rec >= prev ? '较前 30 天上升 ' : '较前 30 天下降 ') + Math.abs(rec - prev) + ' 次'
+    : (rec ? rec + ' 次' : '近 30 天无提交')});
+  return out;
+}
+function exportPdf(){
+  document.body.classList.add('printing');
+  Object.keys(charts).forEach(function(k){ charts[k].resize(); });
+  setTimeout(function(){ window.print(); document.body.classList.remove('printing'); }, 80);
+}
+
+/* ================= 图表 ================= */
+var charts = {};
+function chart(id){ if(!charts[id]) charts[id] = echarts.init(document.getElementById(id)); return charts[id]; }
+var axisTooltip = {trigger:'axis'};
+var GRID = {left:46,right:16,top:34,bottom:28};
+function barOption(cats,data,color){
+  return {
+    tooltip:axisTooltip, grid:Object.assign({},GRID),
+    xAxis:{type:'category',data:cats}, yAxis:{type:'value',name:mlabel()},
+    series:[{type:'bar',data:data,itemStyle:{color:color||'#0969da'},barMaxWidth:40,name:mlabel()}]
+  };
+}
+
+function render(){
+  var list = filtered();
+  document.getElementById('commitCount').textContent = fmt(list.length);
+  var rangeTxt = (state.start||state.end) ? ('时间 '+ (state.start||'…') +' ~ '+ (state.end||'…')) : '全部时间';
+  document.getElementById('summary').innerHTML =
+    '统计分支 <b>'+ANALYZED_BRANCH+'</b> · 口径 <b>'+mlabel()+'</b> · '+rangeTxt+' · 共 '+fmt(list.length)+' 次提交 · '+
+    Object.keys(list.reduce(function(a,c){a[c.author]=1;return a;},{})).length+' 人 · 改动 '+fmt(sum(list,function(c){return c.additions+c.deletions;}))+
+    ' 行（新增 '+fmt(sum(list,function(c){return c.additions;}))+' / 删除 '+fmt(sum(list,function(c){return c.deletions;}))+
+    ' / 净增 '+fmt(sum(list,function(c){return c.additions-c.deletions;}))+'）';
+
+  var m = mlabel();
+  document.getElementById('ti-trend').innerHTML = '提交 / 改动趋势 <span class="psub">按'+m+' · 粒度自适应（日/周/月）</span>';
+  document.getElementById('ti-heat').innerHTML = '提交热力图 <span class="psub">按提交次数，不随口径变化</span>';
+  document.getElementById('ti-matrix').innerHTML = '团队作息热力图 <span class="psub">纵轴星期 · 横轴小时 · 颜色越深越活跃 · 按'+m+'</span>';
+  document.getElementById('ti-author-trend').innerHTML = '人员贡献趋势 <span class="psub">多人按月堆叠 · 按'+m+'</span>';
+  document.getElementById('ti-net').innerHTML = '净增行数趋势 <span class="psub">新增 − 删除 · 可正可负</span>';
+  document.getElementById('ti-ext').innerHTML = '文件类型增删 <span class="psub">按扩展名 · 行数</span>';
+  document.getElementById('ti-type').innerHTML = '提交类型分布 <span class="psub">按'+m+'</span>';
+
+  document.getElementById('kpis').innerHTML = kpis(list).map(function(k){
+    return '<div class="kpi"><div class="label">'+k.label+'</div><div class="val '+ (k.cls||'') +'">'+k.val+'</div></div>';
+  }).join('');
+  document.getElementById('insights').innerHTML = computeInsights(list).map(function(x){
+    return '<div class="insight"><div class="il">'+x.label+'</div><div class="iv">'+x.val+'</div></div>';
+  }).join('');
+
+  // 总览：趋势
+  var ts = timeSeries(list, state.metric);
+  chart('cTrend').setOption({
+    tooltip:axisTooltip, grid:Object.assign({},GRID),
+    xAxis:{type:'category',data:ts.cats,axisLabel:{rotate:ts.gran==='month'?0:30,fontSize:11}},
+    yAxis:{type:'value',name:mlabel()},
+    series:[{type:'line',data:ts.data,smooth:true,areaStyle:{opacity:.12},itemStyle:{color:'#0969da'},name:mlabel()}]
+  });
+
+  // 总览：热力图
+  var heat = {};
+  list.forEach(function(c){ heat[c.dayKey] = (heat[c.dayKey]||0) + 1; });
+  var keys = list.length ? list.map(function(c){return c.dayKey;}).sort() : [TODAY];
+  var range = [keys[0], keys[keys.length-1]];
+  var hm = Object.keys(heat).map(function(d){ return [d, heat[d]]; });
+  chart('cHeat').setOption({
+    tooltip:{formatter:function(p){ return p.value[0]+'<br/>'+p.value[1]+' 次提交'; }},
+    visualMap:{min:0,max:Math.max(1, Math.max.apply(null, Object.keys(heat).map(function(k){return heat[k];}).concat([0]))),
+      inRange:{color:['#ebedf0','#9be9a8','#40c463','#30a14e','#216e39']},show:false},
+    calendar:{range:range,cellSize:['auto',12],splitLine:{show:false},itemStyle:{borderColor:'#fff',borderWidth:2},dayLabel:{firstDay:1},monthLabel:{}},
+    series:[{type:'heatmap',coordinateSystem:'calendar',data:hm}]
+  });
+
+  // 时间：团队作息热力矩阵（星期 × 小时）
+  var am = activityMatrix(list);
+  chart('cMatrix').setOption({
+    tooltip:{formatter:function(p){ return WD_CN[p.value[1]] + ' ' + p.value[0] + '点 · ' + p.value[2] + ' ' + mlabel(); }},
+    grid:{left:56, right:24, top:16, bottom:72},
+    xAxis:{type:'category', data:HOURS, splitArea:{show:true}, axisLabel:{fontSize:10}},
+    yAxis:{type:'category', data:WD_CN, inverse:true, splitArea:{show:true}},
+    visualMap:{min:0, max:Math.max(1, am.max), calculable:true, orient:'horizontal', left:'center', bottom:6,
+      inRange:{color:['#eef3fb','#c8dcf2','#82b0e4','#3d7fd4','#1d4e9e']}, text:['多','少']},
+    series:[{type:'heatmap', data:am.data, itemStyle:{borderColor:'#fff', borderWidth:1}}]
+  });
+
+  // 人员
+  var shareData = authorRows(list).map(function(o){ return {name:o.author, value: state.metric==='commits'?o.commits:o.lines}; });
+  chart('cAuthorShare').setOption({
+    tooltip:{trigger:'item',formatter:'{b}: {c} ({d}%)'},
+    series:[{type:'pie',radius:['40%','70%'],data:shareData,label:{formatter:'{b}\n{d}%'}}]
+  });
+  var at = authorTrend(list);
+  var tSeries = at.authors.map(function(a){
+    var byMonth = {};
+    list.forEach(function(c){ if(c.author===a) byMonth[c.monthKey] = (byMonth[c.monthKey]||0)+mv(c); });
+    return {name:a,type:'line',stack:'x',areaStyle:{opacity:.25},emphasis:{focus:'series'},
+      data:at.months.map(function(mo){ return byMonth[mo]||0; })};
+  });
+  chart('cAuthorTrend').setOption({
+    tooltip:{trigger:'axis'},legend:{top:0,type:'scroll'},grid:Object.assign({},GRID,{top:40}),
+    xAxis:{type:'category',data:at.months},yAxis:{type:'value',name:mlabel()},series:tSeries
+  });
+
+  // 代码行数
+  var net = timeSeries(list,'net');
+  chart('cNet').setOption({
+    tooltip:axisTooltip, grid:Object.assign({},GRID),
+    xAxis:{type:'category',data:net.cats,axisLabel:{rotate:net.gran==='month'?0:30,fontSize:11}},
+    yAxis:{type:'value',name:'净增行数'},
+    series:[{type:'line',data:net.data,smooth:true,itemStyle:{color:'#8250df'},areaStyle:{opacity:.1},name:'净增行数'}]
+  });
+  var ed = extDist(list).slice(0,8);
+  chart('cExt').setOption({
+    tooltip:{trigger:'axis'},legend:{top:0},grid:Object.assign({},GRID,{top:34}),
+    xAxis:{type:'category',data:ed.map(function(d){return d.ext;})},yAxis:{type:'value',name:'行数'},
+    series:[
+      {name:'新增',type:'bar',stack:'x',data:ed.map(function(d){return d.add;}),itemStyle:{color:'#1a7f37'}},
+      {name:'删除',type:'bar',stack:'x',data:ed.map(function(d){return d.del;}),itemStyle:{color:'#cf222e'}}
+    ]
+  });
+  var pa = authorRows(list).sort(function(a,b){return b.lines-a.lines;}).slice(0,8);
+  chart('cPerAuth').setOption({
+    tooltip:{trigger:'axis'},grid:{left:70,right:20,top:20,bottom:28},
+    xAxis:{type:'value'},yAxis:{type:'category',inverse:true,data:pa.map(function(d){return d.author;})},
+    series:[
+      {name:'新增',type:'bar',stack:'x',data:pa.map(function(d){return d.add;}),itemStyle:{color:'#1a7f37'}},
+      {name:'删除',type:'bar',stack:'x',data:pa.map(function(d){return d.del;}),itemStyle:{color:'#cf222e'}}
+    ]
+  });
+
+  // 提交内容
+  var td = typeDist(list);
+  chart('cType').setOption(barOption(td.map(function(d){return d.name;}), td.map(function(d){return d.value;})));
+  var sd = sizeDist(list);
+  chart('cSize').setOption({
+    tooltip:{trigger:'axis'},grid:Object.assign({},GRID),
+    xAxis:{type:'category',data:sd.map(function(d){return d.label;})},yAxis:{type:'value',name:'提交数'},
+    series:[{type:'bar',data:sd.map(function(d){return d.value;}),barMaxWidth:44,itemStyle:{color:'#8250df'},name:'提交数'}]
+  });
+
+  tableCache.author = authorRows(list);
+  tableCache.files = fileRows(list);
+  tableCache.big = bigRows(list);
+  renderTables();
+}
+
+/* ================= 分支清单（静态参考） ================= */
+function renderBranches(){
+  document.getElementById('topBranch').textContent = ANALYZED_BRANCH;
+  document.getElementById('bannerBranch').textContent = ANALYZED_BRANCH;
+  var colOrder = ['name','current','commits','last','ahead','behind'];
+  var labels = {name:'分支',current:'状态',commits:'提交数',last:'最后提交',ahead:'领先 main',behind:'落后 main'};
+  var heads = colOrder.map(function(k){
+    var num = ['commits','ahead','behind'].indexOf(k)>=0;
+    var arrow = sortBranch.k===k ? (sortBranch.dir<0?' ▼':' ▲') : '';
+    return '<th class="'+(num?'num':'')+'" data-k="'+k+'">'+labels[k]+arrow+'</th>';
+  }).join('');
+  document.querySelector('#tBranch thead').innerHTML = '<tr>'+heads+'</tr>';
+  var sorted = BRANCH_REFS.slice().sort(function(a,b){
+    var va=a[sortBranch.k], vb=b[sortBranch.k];
+    if(typeof va==='number') return (va-vb)*sortBranch.dir;
+    return String(va==null?'':va).localeCompare(String(vb==null?'':vb))*sortBranch.dir;
+  });
+  document.querySelector('#tBranch tbody').innerHTML = sorted.map(function(b){
+    return '<tr><td>'+b.name+'</td><td>'+(b.current?'<span class="cur">✓ 统计中</span>':'<span class="muted">—</span>')+
+      '</td><td class="num b">'+fmt(b.commits)+'</td><td>'+ (b.last==null?'—':b.last) +'</td>'+
+      '<td class="num">'+(b.ahead==null?'—':b.ahead)+'</td><td class="num">'+(b.behind==null?'—':b.behind)+'</td></tr>';
+  }).join('');
+}
+
+/* ================= 表格（可排序） ================= */
+var COL = {
+  author:{author:{k:'author',label:'作者'},commits:{k:'commits',label:'提交数',num:true},lines:{k:'lines',label:'改动行数',num:true},add:{k:'add',label:'新增',num:true},del:{k:'del',label:'删除',num:true},net:{k:'net',label:'净增',num:true},files:{k:'files',label:'变更文件',num:true},days:{k:'days',label:'活跃天数',num:true}},
+  files:{f:{k:'f',label:'文件'},commits:{k:'commits',label:'提交数',num:true},lines:{k:'lines',label:'改动行数',num:true},add:{k:'add',label:'+新增',num:true},del:{k:'del',label:'-删除',num:true}},
+  big:{hash:{k:'hash',label:'提交'},subject:{k:'subject',label:'',hidden:true},author:{k:'author',label:'作者'},date:{k:'date',label:'日期'},total:{k:'total',label:'改动行数',num:true}}
+};
+function renderTables(){
+  ['author','files','big'].forEach(function(kind){
+    var t = document.getElementById('t'+kind[0].toUpperCase()+kind.slice(1));
+    if(!t) return;
+    var rows = tableCache[kind] || [];
+    var s = sort[kind];
+    var colKeys = Object.keys(COL[kind]).filter(function(ck){ return !COL[kind][ck].hidden; });
+    var key = s.k;
+    var sorted = rows.slice();
+    sorted.sort(function(a,b){
+      var col = COL[kind][key] || {num:false};
+      var va=a[key], vb=b[key];
+      if(typeof va==='number' || col.num) return (va-vb)*s.dir;
+      return String(va==null?'':va).localeCompare(String(vb==null?'':vb))*s.dir;
+    });
+    var heads = colKeys.map(function(ck){
+      var c=COL[kind][ck], arrow = s.k===c.k ? (s.dir<0?' ▼':' ▲') : '';
+      return '<th class="'+(c.num?'num':'')+'" data-k="'+c.k+'">'+c.label+arrow+'</th>';
+    }).join('');
+    t.querySelector('thead').innerHTML = '<tr>'+heads+'</tr>';
+    t.querySelector('tbody').innerHTML = sorted.length ? sorted.map(function(r){
+      if(kind==='author') return '<tr><td>'+r.author+'</td><td class="num b">'+r.commits+'</td><td class="num">'+fmt(r.lines)+'</td><td class="num g">+'+fmt(r.add)+'</td><td class="num r">-'+fmt(r.del)+'</td><td class="num">'+(r.net>=0?'+':'')+fmt(r.net)+'</td><td class="num">'+r.files+'</td><td class="num">'+r.days+'</td></tr>';
+      if(kind==='files') return '<tr><td>'+r.f+'</td><td class="num b">'+r.commits+'</td><td class="num">'+fmt(r.lines)+'</td><td class="num g">+'+fmt(r.add)+'</td><td class="num r">-'+fmt(r.del)+'</td></tr>';
+      if(kind==='big') return '<tr><td>'+r.hash+' <span class="muted">'+r.subject+'</span></td><td>'+r.author+'</td><td>'+r.date+'</td><td class="num">'+fmt(r.total)+'</td></tr>';
+    }).join('') : '<tr><td colspan="'+colKeys.length+'" class="empty">无数据</td></tr>';
+  });
+}
+
+/* ================= 交互 ================= */
+function renderChips(){
+  var pc = document.getElementById('authChips');
+  pc.innerHTML = allAuthors.map(function(a){ return '<span class="chip '+(state.authors[a]?'on':'')+'" data-a="'+a+'">'+a+'</span>'; }).join('');
+  pc.querySelectorAll('.chip').forEach(function(el){ el.onclick=function(){ var a=el.dataset.a; state.authors[a]=!state.authors[a]; renderChips(); render(); }; });
+
+  var tc = document.getElementById('typeChips');
+  tc.innerHTML = allTypes.map(function(t){ return '<span class="chip '+(state.types[t]?'on':'')+'" data-t="'+t+'">'+t+'</span>'; }).join('');
+  tc.querySelectorAll('.chip').forEach(function(el){ el.onclick=function(){ var t=el.dataset.t; state.types[t]=!state.types[t]; renderChips(); render(); }; });
+}
+
+function applyPreset(days){
+  if(!days){ state.start=null; state.end=null; }
+  else {
+    var endd = new Date(TODAY+'T00:00:00Z');
+    var startd = new Date(endd.getTime() - (days-1)*86400000);
+    state.start = startd.toISOString().slice(0,10);
+    state.end = TODAY;
+  }
+  syncDates();
+}
+function syncDates(){
+  document.getElementById('fFrom').value = state.start || '';
+  document.getElementById('fTo').value = state.end || '';
+}
+function setStateAuthorAll(v){ allAuthors.forEach(function(a){ state.authors[a]=v; }); }
+function setStateTypeAll(v){ allTypes.forEach(function(t){ state.types[t]=v; }); }
+
+document.getElementById('fDays').onchange = function(e){
+  var v = e.target.value;
+  if(v==='0') applyPreset(null);
+  else if(v!=='custom') applyPreset(+v);
+  render();
+};
+document.getElementById('fFrom').onchange = function(e){ state.start=e.target.value||null; document.getElementById('fDays').value='custom'; render(); };
+document.getElementById('fTo').onchange = function(e){ state.end=e.target.value||null; document.getElementById('fDays').value='custom'; render(); };
+var _kwTimer = null;
+document.getElementById('fKw').oninput = function(e){
+  var v = e.target.value;
+  clearTimeout(_kwTimer);
+  _kwTimer = setTimeout(function(){ state.kw = v; render(); }, 250);
+};
+document.getElementById('reset').onclick = function(){
+  state.metric='commits'; state.kw='';
+  setStateAuthorAll(true); setStateTypeAll(true);
+  document.getElementById('fKw').value='';
+  document.getElementById('fDays').value=365; applyPreset(365);
+  document.querySelectorAll('#metricSeg .sb').forEach(function(b){ b.classList.toggle('on', b.dataset.m==='commits'); });
+  renderChips(); render();
+};
+document.getElementById('authAll').onclick=function(e){ e.preventDefault(); setStateAuthorAll(true); renderChips(); render(); };
+document.getElementById('authNone').onclick=function(e){ e.preventDefault(); setStateAuthorAll(false); renderChips(); render(); };
+document.getElementById('typeAll').onclick=function(e){ e.preventDefault(); setStateTypeAll(true); renderChips(); render(); };
+document.querySelectorAll('#metricSeg .sb').forEach(function(b){ b.onclick=function(){
+  state.metric = b.dataset.m;
+  document.querySelectorAll('#metricSeg .sb').forEach(function(x){ x.classList.toggle('on', x===b); });
+  render();
+};});
+
+document.querySelectorAll('#tabs .tb').forEach(function(b){ b.onclick=function(){
+  document.querySelectorAll('#tabs .tb').forEach(function(x){ x.classList.toggle('on', x===b); });
+  document.querySelectorAll('.tab-panel').forEach(function(p){
+    var active = p.dataset.tab===b.dataset.tab;
+    p.classList.toggle('active', active);
+    if(active) p.querySelectorAll('.chart').forEach(function(el){ if(charts[el.id]) charts[el.id].resize(); });
+  });
+};});
+
+document.querySelectorAll('#tAuthor,#tFiles,#tBig').forEach(function(t){
+  t.querySelector('thead').addEventListener('click', function(e){
+    var th = e.target.closest('th[data-k]'); if(!th) return;
+    var k=th.dataset.k, kind=t.dataset.sort;
+    if(sort[kind].k===k) sort[kind].dir*=-1; else { sort[kind].k=k; sort[kind].dir=-1; }
+    renderTables();
+  });
+});
+document.querySelector('#tBranch thead').addEventListener('click', function(e){
+  var th = e.target.closest('th[data-k]'); if(!th) return;
+  var k=th.dataset.k;
+  if(sortBranch.k===k) sortBranch.dir*=-1; else { sortBranch.k=k; sortBranch.dir=-1; }
+  renderBranches();
+});
+
+window.addEventListener('resize', function(){ Object.keys(charts).forEach(function(k){ charts[k].resize(); }); });
+
+/* ================= 初始化 ================= */
+document.getElementById('repoName').textContent = REPO.name || 'repository';
+document.getElementById('repoPath').textContent = REPO.path || '';
+document.getElementById('genAt').textContent = (REPO.generatedAt||'').slice(0,16).replace('T',' ');
+applyPreset(365);
+renderChips();
+renderBranches();
+render();
+</script>
+</body>
+</html>

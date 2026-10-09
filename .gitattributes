@@ -1,0 +1,5 @@
+# 禁止任何换行自动转换。
+# 本机 core.autocrlf=true，若跟默认走，bat 的 CRLF 会被规范化成 LF 存进仓库；
+# 一旦在 autocrlf=false 的机器上 clone，得到的 bat 就是 LF-only，
+# cmd.exe 会解析错乱（中文整行被跳过）。所以这里显式关掉转换，按字节原样存取。
+* -text
